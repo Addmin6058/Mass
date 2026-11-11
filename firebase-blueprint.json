@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "A mess or shared flat member.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "deposit": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "deposit", "createdAt", "updatedAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Daily shared mess expense or market bazar cost.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "paidByMemberId": { "type": "string" },
+        "paidByMemberName": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "amount", "category", "date", "createdAt", "updatedAt"]
+    },
+    "MealEntry": {
+      "title": "MealEntry",
+      "description": "Daily meal record for a member.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberName": { "type": "string" },
+        "date": { "type": "string" },
+        "breakfast": { "type": "number" },
+        "lunch": { "type": "number" },
+        "dinner": { "type": "number" },
+        "totalMeals": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "memberId", "memberName", "date", "totalMeals", "createdAt", "updatedAt"]
+    },
+    "MessSettings": {
+      "title": "MessSettings",
+      "description": "User custom settings for their mess.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "messName": { "type": "string" },
+        "currencySymbol": { "type": "string" },
+        "activeMonth": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "messName", "currencySymbol", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/Member" },
+      "description": "Collection of members belonging to a user's mess."
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Collection of expenses logged in the user's mess."
+    },
+    "/users/{userId}/meals/{mealId}": {
+      "schema": { "$ref": "#/entities/MealEntry" },
+      "description": "Collection of meal entries per member and date."
+    },
+    "/users/{userId}/settings/{settingsId}": {
+      "schema": { "$ref": "#/entities/MessSettings" },
+      "description": "Settings configuration for the user's mess."
+    }
+  }
+}

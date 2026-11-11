@@ -1,0 +1,182 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidMember(data) {
+      return data.userId is string && data.userId.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 30)) &&
+             (data.deposit is int || data.deposit is float) && data.deposit >= 0;
+    }
+
+    function isValidExpense(data) {
+      return data.userId is string && data.userId.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             (data.amount is int || data.amount is float) && data.amount >= 0 &&
+             data.category is string && data.category.size() <= 50 &&
+             (!('paidByMemberId' in data) || data.paidByMemberId == null || (data.paidByMemberId is string && data.paidByMemberId.size() <= 128)) &&
+             (!('paidByMemberName' in data) || data.paidByMemberName == null || (data.paidByMemberName is string && data.paidByMemberName.size() <= 100)) &&
+             data.date is string && data.date.size() <= 50;
+    }
+
+    function isValidMealEntry(data) {
+      return data.userId is string && data.userId.size() > 0 &&
+             data.memberId is string && data.memberId.size() > 0 && data.memberId.size() <= 128 &&
+             data.memberName is string && data.memberName.size() > 0 && data.memberName.size() <= 100 &&
+             data.date is string && data.date.size() <= 50 &&
+             (!('breakfast' in data) || data.breakfast == null || ((data.breakfast is int || data.breakfast is float) && data.breakfast >= 0)) &&
+             (!('lunch' in data) || data.lunch == null || ((data.lunch is int || data.lunch is float) && data.lunch >= 0)) &&
+             (!('dinner' in data) || data.dinner == null || ((data.dinner is int || data.dinner is float) && data.dinner >= 0)) &&
+             (data.totalMeals is int || data.totalMeals is float) && data.totalMeals >= 0;
+    }
+
+    function isValidMessSettings(data) {
+      return data.userId is string && data.userId.size() > 0 &&
+             data.messName is string && data.messName.size() > 0 && data.messName.size() <= 100 &&
+             data.currencySymbol is string && data.currencySymbol.size() <= 10 &&
+             (!('activeMonth' in data) || data.activeMonth == null || (data.activeMonth is string && data.activeMonth.size() <= 50));
+    }
+
+    // User-scoped isolated paths
+    match /users/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+
+      // Members subcollection
+      match /members/{memberId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(memberId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'name', 'deposit', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'phone', 'deposit', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidMember(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(memberId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidMember(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'deposit', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Expenses subcollection
+      match /expenses/{expenseId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(expenseId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'title', 'amount', 'category', 'date', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'amount', 'category', 'paidByMemberId', 'paidByMemberName', 'date', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidExpense(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(expenseId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidExpense(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'amount', 'category', 'paidByMemberId', 'paidByMemberName', 'date', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Meals subcollection
+      match /meals/{mealId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(mealId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'memberId', 'memberName', 'date', 'totalMeals', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'memberId', 'memberName', 'date', 'breakfast', 'lunch', 'dinner', 'totalMeals', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidMealEntry(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(mealId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidMealEntry(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['memberId', 'memberName', 'date', 'breakfast', 'lunch', 'dinner', 'totalMeals', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Settings subcollection
+      match /settings/{settingsId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(settingsId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'messName', 'currencySymbol', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'messName', 'currencySymbol', 'activeMonth', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidMessSettings(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(settingsId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidMessSettings(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['messName', 'currencySymbol', 'activeMonth', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+  }
+}

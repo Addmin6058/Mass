@@ -1,0 +1,8 @@
+{
+  "name": "MASS",
+  "description": "Fluid curved navigation bar with smooth elevated transitions, featuring Home, Profile, Add Members, Expenses, Meal Rate, Report, and Settings tabs with persistent cloud syncing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
